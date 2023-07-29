@@ -15,7 +15,7 @@ import * as Ably from 'ably'
 
 Quill.register('modules/cursors', QuillCursors)
 
-const API_KEY = 'kHrEyw.Re6ZBw:xMB1rjfLpsf_IVkg4Y8gYKqK-DaaJ5blYisvXgXDb58'
+const API_KEY = process.env.REACT_APP_ABLY_API_KEY
 
 export const Editor = () => {
   const [quill, setQuill] = useState<ReactQuill | null>(null)
