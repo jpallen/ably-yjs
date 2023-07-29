@@ -60,7 +60,7 @@ const useChannel = (realtime: Ably.Realtime | null, doc: Y.Doc, awareness: Aware
   
     channel.subscribe('update', (message) => {
       const update = new Uint8Array(message.data)
-      Y.applyUpdate(doc, update)
+      Y.applyUpdate(doc, update, 'server')
     })
 
     channel.subscribe('awareness', (message) => {
@@ -68,16 +68,19 @@ const useChannel = (realtime: Ably.Realtime | null, doc: Y.Doc, awareness: Aware
       applyAwarenessUpdate(awareness, update, 'server')
     })
 
-    doc.on('update', (update) => {
+    doc.on('update', (update, origin) => {
+      console.log('doc.update origin', origin)
+      if (origin === 'server') return
       channel.publish('update', update)
     })
 
     awareness.on(
       'update',
       ({ added, updated, removed }: AwarenessUpdate, origin: any) => {
+        if (origin === 'server') return
         const changedClients = added.concat(updated).concat(removed)
         const update = encodeAwarenessUpdate(awareness, changedClients)
-        channel.publish('awareness', update, origin)
+        channel.publish('awareness', update)
       }
     )
 
@@ -87,10 +90,14 @@ const useChannel = (realtime: Ably.Realtime | null, doc: Y.Doc, awareness: Aware
 
     channel.history({ direction: 'forwards', limit: 1000 }, (error, result) => {
       if (!result) return
-      for (const message of result.items) {
-        const update = new Uint8Array(message.data)
-        Y.applyUpdate(doc, update)
-      }
+      Y.transact(doc, () => {
+        for (const message of result.items) {
+          if (message.name === 'update') {
+            const update = new Uint8Array(message.data)
+            Y.applyUpdate(doc, update, 'server')
+          }
+        }
+      })
     })
 
     return () => {
